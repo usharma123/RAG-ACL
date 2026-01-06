@@ -12,13 +12,13 @@ export const USERS: User[] = [
     id: "jd79cqpj3th23bqt841hwr7rnx7yqms8",
     name: "Alice",
     email: "alice@acme.com",
-    sources: ["public", "finance"],
+    sources: ["gdrive", "confluence", "slack"],
   },
   {
     id: "jd7c1y3vwx246mamqs2rarry2h7ypzpd",
     name: "Bob",
     email: "bob@acme.com",
-    sources: ["public"],
+    sources: ["gdrive"],
   },
 ];
 

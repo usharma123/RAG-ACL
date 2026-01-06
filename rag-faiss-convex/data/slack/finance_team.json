@@ -1,0 +1,255 @@
+{
+  "channel": "finance_team",
+  "messages": [
+    {
+      "user": "alice",
+      "ts": "1767711593.494471",
+      "text": "reimbursements update: needs review"
+    },
+    {
+      "user": "alice",
+      "ts": "1767710693.494471",
+      "text": "reimbursements update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767709793.494471",
+      "text": "expense policy update: needs review"
+    },
+    {
+      "user": "dave",
+      "ts": "1767708893.494471",
+      "text": "approval update: needs review"
+    },
+    {
+      "user": "alice",
+      "ts": "1767707993.494471",
+      "text": "approval update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767707093.494471",
+      "text": "budget update: needs review"
+    },
+    {
+      "user": "dave",
+      "ts": "1767706193.494471",
+      "text": "budget update: needs review"
+    },
+    {
+      "user": "bob",
+      "ts": "1767705293.494471",
+      "text": "budget update: looks good"
+    },
+    {
+      "user": "carol",
+      "ts": "1767704393.494471",
+      "text": "budget update: blocked"
+    },
+    {
+      "user": "alice",
+      "ts": "1767703493.494471",
+      "text": "invoice update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767702593.494471",
+      "text": "expense policy update: blocked"
+    },
+    {
+      "user": "bob",
+      "ts": "1767701693.494471",
+      "text": "approval update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767700793.494471",
+      "text": "invoice update: blocked"
+    },
+    {
+      "user": "bob",
+      "ts": "1767699893.494471",
+      "text": "budget update: approved"
+    },
+    {
+      "user": "bob",
+      "ts": "1767698993.494471",
+      "text": "reimbursements update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767698093.494471",
+      "text": "approval update: needs review"
+    },
+    {
+      "user": "carol",
+      "ts": "1767697193.494471",
+      "text": "invoice update: looks good"
+    },
+    {
+      "user": "carol",
+      "ts": "1767696293.494471",
+      "text": "expense policy update: approved"
+    },
+    {
+      "user": "carol",
+      "ts": "1767695393.494471",
+      "text": "expense policy update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767694493.494471",
+      "text": "budget update: looks good"
+    },
+    {
+      "user": "dave",
+      "ts": "1767693593.494471",
+      "text": "budget update: looks good"
+    },
+    {
+      "user": "carol",
+      "ts": "1767692693.494471",
+      "text": "reimbursements update: needs review"
+    },
+    {
+      "user": "dave",
+      "ts": "1767691793.494471",
+      "text": "invoice update: blocked"
+    },
+    {
+      "user": "dave",
+      "ts": "1767690893.494471",
+      "text": "reimbursements update: needs review"
+    },
+    {
+      "user": "dave",
+      "ts": "1767689993.494471",
+      "text": "budget update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767689093.494471",
+      "text": "expense policy update: looks good"
+    },
+    {
+      "user": "alice",
+      "ts": "1767688193.494471",
+      "text": "invoice update: looks good"
+    },
+    {
+      "user": "dave",
+      "ts": "1767687293.494471",
+      "text": "invoice update: blocked"
+    },
+    {
+      "user": "dave",
+      "ts": "1767686393.494471",
+      "text": "invoice update: needs review"
+    },
+    {
+      "user": "carol",
+      "ts": "1767685493.494471",
+      "text": "approval update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767684593.494471",
+      "text": "budget update: needs review"
+    },
+    {
+      "user": "bob",
+      "ts": "1767683693.494471",
+      "text": "budget update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767682793.494471",
+      "text": "expense policy update: looks good"
+    },
+    {
+      "user": "dave",
+      "ts": "1767681893.494471",
+      "text": "invoice update: needs review"
+    },
+    {
+      "user": "alice",
+      "ts": "1767680993.494471",
+      "text": "budget update: looks good"
+    },
+    {
+      "user": "bob",
+      "ts": "1767680093.494471",
+      "text": "invoice update: approved"
+    },
+    {
+      "user": "carol",
+      "ts": "1767679193.494471",
+      "text": "reimbursements update: blocked"
+    },
+    {
+      "user": "bob",
+      "ts": "1767678293.494471",
+      "text": "approval update: looks good"
+    },
+    {
+      "user": "carol",
+      "ts": "1767677393.494471",
+      "text": "invoice update: approved"
+    },
+    {
+      "user": "alice",
+      "ts": "1767676493.494471",
+      "text": "approval update: looks good"
+    },
+    {
+      "user": "dave",
+      "ts": "1767675593.494471",
+      "text": "reimbursements update: needs review"
+    },
+    {
+      "user": "dave",
+      "ts": "1767674693.494471",
+      "text": "invoice update: looks good"
+    },
+    {
+      "user": "alice",
+      "ts": "1767673793.494471",
+      "text": "approval update: approved"
+    },
+    {
+      "user": "bob",
+      "ts": "1767672893.494471",
+      "text": "reimbursements update: blocked"
+    },
+    {
+      "user": "alice",
+      "ts": "1767671993.494471",
+      "text": "reimbursements update: needs review"
+    },
+    {
+      "user": "bob",
+      "ts": "1767671093.494471",
+      "text": "reimbursements update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767670193.494471",
+      "text": "reimbursements update: blocked"
+    },
+    {
+      "user": "carol",
+      "ts": "1767669293.494471",
+      "text": "reimbursements update: looks good"
+    },
+    {
+      "user": "carol",
+      "ts": "1767668393.494471",
+      "text": "budget update: approved"
+    },
+    {
+      "user": "dave",
+      "ts": "1767667493.494471",
+      "text": "expense policy update: needs review"
+    }
+  ]
+}

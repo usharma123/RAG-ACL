@@ -20,6 +20,16 @@ export const create = mutation({
   },
 });
 
+export const updateSources = mutation({
+  args: {
+    userId: v.id("users"),
+    allowedSources: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, { allowedSources: args.allowedSources });
+  },
+});
+
 export const get = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => await ctx.db.get(args.userId),
