@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    platform: linux/arm64
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - ./faiss_data:/app/faiss_data

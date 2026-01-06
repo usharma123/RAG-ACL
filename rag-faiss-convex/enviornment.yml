@@ -1,0 +1,14 @@
+name: base
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - faiss-cpu
+  - numpy
+  - pip
+  - pip:
+      - fastapi
+      - "uvicorn[standard]"
+      - python-dotenv
+      - requests
+      - openai
