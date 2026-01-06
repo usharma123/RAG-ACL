@@ -47,6 +47,121 @@ When a user sends a query:
 2. Chunks are filtered by tenant ID at the database level
 3. A defense-in-depth check validates source access before returning results
 
+### Query Flow
+
+```
+┌─────────────┐
+│   User      │
+│  (React UI) │
+└──────┬──────┘
+       │ 1. Types message
+       ▼
+┌─────────────────────────────────────┐
+│  Chat.tsx sendMessage()             │
+│  - POST /api/chat                   │
+│  - Headers: Authorization token     │
+└──────┬──────────────────────────────┘
+       │ 2. Request with auth token
+       ▼
+┌─────────────────────────────────────┐
+│  Bun Server (Proxy)                 │
+│  index.ts                           │
+│  - Forwards to FastAPI              │
+└──────┬──────────────────────────────┘
+       │ 3. Proxy to FastAPI
+       ▼
+┌─────────────────────────────────────┐
+│  FastAPI /chat endpoint             │
+│  api/main.py:170                    │
+└──────┬──────────────────────────────┘
+       │ 4. Extract auth token
+       ▼
+┌─────────────────────────────────────┐
+│  _require_user()                    │
+│  - Validate Convex Auth session     │
+│  - Get tenantId, allowedSources.    |
+└──────┬──────────────────────────────┘
+       │ 5. Return user object
+       ▼
+┌─────────────────────────────────────┐
+│  Access Control Check               │
+│  - Get allowed sources for user     │
+│  - If empty: return error           │
+└──────┬──────────────────────────────┘
+       │ 6. User query + allowed sources
+       ▼
+┌─────────────────────────────────────┐
+│  OpenAI Embeddings                  │
+│  - Generate embedding for query     │
+└──────┬──────────────────────────────┘
+       │ 7. Query vector
+       ▼
+┌─────────────────────────────────────┐
+│  FAISS Search                       │
+│  faiss_store.search()               │
+│  - Search per-tenant, per-source    │
+│    indexes (only allowed sources)   │
+│  - Return top-k chunk IDs + scores  │
+└──────┬──────────────────────────────┘
+       │ 8. Chunk IDs
+       ▼
+┌─────────────────────────────────────┐
+│  Convex DB: chunks:getMany          │
+│  - Retrieve chunks by IDs           │
+│  - Filter by tenantId (server-side) │
+└──────┬──────────────────────────────┘
+       │ 9. Chunks (with metadata)
+       ▼
+┌─────────────────────────────────────-┐
+│  Defense-in-Depth Filter             │
+│  - Verify tenantId matches user      │
+│  - Verify sourceKey in allowedSources│
+│  - Build context -> filtered chunks  │
+└──────┬────────────────────────────── |
+       │ 10. Context + question
+       ▼
+┌─────────────────────────────────────┐
+│  OpenAI Chat Completion             │
+│  - Generate answer from context     │
+└──────┬──────────────────────────────┘
+       │ 11. AI answer
+       ▼
+┌─────────────────────────────────────┐
+│  Fetch Documents                    │
+│  - Get document titles/URLs         │
+│  - Build retrieved response list    │
+└──────┬──────────────────────────────┘
+       │ 12. Log query in Convex
+       ▼
+┌─────────────────────────────────────┐
+│  Convex DB: logs:add                │
+│  - Store query, answer, sources     │
+└──────┬──────────────────────────────┘
+       │ 13. Return response
+       ▼
+┌─────────────────────────────────────┐
+│  Response to Frontend               │
+│  {                                  │
+│    answer,                          │
+│    retrieved: [source hits],        │
+│    logId                            │
+│  }                                  │
+└──────┬──────────────────────────────┘
+       │ 14. Display answer + sources
+       ▼
+┌─────────────┐
+│   User      │
+│  (React UI) │
+└─────────────┘
+```
+
+**Key Access Control Points:**
+
+1. **Authentication** (main.py:77-100): Validates Convex Auth token
+2. **FAISS Index Selection** (main.py:194): Only searches indexes for user's allowed sources
+3. **Tenant Filtering** (main.py:197): Convex query filters by tenantId
+4. **Defense-in-Depth** (main.py:203): Double-checks tenantId and sourceKey before using context
+
 Example:
 - **Alice** has access to `["gdrive", "confluence", "slack"]` - can query all documents
 - **Bob** has access to `["gdrive"]` - cannot see confluence or slack documents
