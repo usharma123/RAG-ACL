@@ -50,13 +50,17 @@ def embed(texts):
     out = oa.embeddings.create(model=EMBED_MODEL, input=texts)
     return [d.embedding for d in out.data]
 
-def ingest_doc(tenant_id: str, source_key: str, title: str, raw_text: str):
-    doc_id = convex_mutation("ingest:addDocument", {
+def ingest_doc(tenant_id: str, source_key: str, title: str, raw_text: str, source_url: str | None = None):
+    doc_args = {
         "tenantId": tenant_id,
         "sourceKey": source_key,
         "title": title,
         "rawText": raw_text,
-    })
+    }
+    if source_url:
+        doc_args["sourceUrl"] = source_url
+
+    doc_id = convex_mutation("ingest:addDocument", doc_args)
 
     pieces = chunk_text(raw_text)
     if not pieces:

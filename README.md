@@ -7,33 +7,40 @@ A multi-tenant Retrieval-Augmented Generation (RAG) system with role-based acces
 RAG-ACL combines vector similarity search with strict access control to ensure users only receive answers derived from documents they have permission to view. The system uses:
 
 - **FAISS** for fast vector similarity search (per-tenant, per-source indexes)
-- **Convex** for database storage (users, documents, chunks)
+- **Convex** for database storage (users, documents, chunks) and authentication
 - **OpenAI/OpenRouter** for embeddings and chat completions
 - **FastAPI** for the backend API
 - **React + Bun** for the frontend
+- **@convex-dev/auth** for authentication
+- **Sample data + scripts** for generating and ingesting multi-source documents
 
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   React UI      │────▶│   Bun Server    │────▶│   FastAPI       │
-│   (Port 3000)   │     │   (Proxy)       │     │   (Port 8000)   │
+│   (Port 3000)   │     │   (Proxy/API)   │     │   (Port 8000)   │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                                    ┌────────────────────┼────────────────────┐
-                                    │                    │                    │
-                                    ▼                    ▼                    ▼
-                             ┌──────────┐         ┌──────────┐         ┌──────────┐
-                             │  FAISS   │         │  Convex  │         │  OpenAI  │
-                             │  Index   │         │    DB    │         │          │
-                             └──────────┘         └──────────┘         └──────────┘
+                                                          │
+                                     ┌────────────────────┼────────────────────┐
+                                     │                    │                    │
+                                     ▼                    ▼                    ▼
+                              ┌──────────┐         ┌──────────┐         ┌──────────┐
+                              │  FAISS   │         │  Convex  │         │  OpenAI  │
+                              │  Index   │         │    DB    │         │          │
+                              └──────────┘         │  + Auth  │         └──────────┘
+                                                   └──────────┘
 ```
+
+- **Bun Server**: Serves the React frontend, proxies API requests to FastAPI, and handles Convex client connections
+- **FastAPI**: Handles chat queries, retrieves from FAISS, and enforces access control
+- **Convex**: Stores users, documents, chunks, and handles authentication via @convex-dev/auth
 
 ## Access Control Model
 
 Each user has:
 - A `tenantId` for multi-tenant isolation
-- An `allowedSources` list (e.g., `["public", "finance"]`)
+- An `allowedSources` list (e.g., `["gdrive", "confluence", "slack"]`)
 
 When a user sends a query:
 1. The system retrieves only from FAISS indexes matching their allowed sources
@@ -41,8 +48,8 @@ When a user sends a query:
 3. A defense-in-depth check validates source access before returning results
 
 Example:
-- **Alice** has access to `["public", "finance"]` - can query all documents
-- **Bob** has access to `["public"]` - cannot see finance documents
+- **Alice** has access to `["gdrive", "confluence", "slack"]` - can query all documents
+- **Bob** has access to `["gdrive"]` - cannot see confluence or slack documents
 
 ## Prerequisites
 
@@ -50,6 +57,55 @@ Example:
 - Bun (https://bun.sh)
 - A Convex account (https://convex.dev)
 - An OpenAI API key or OpenRouter API key
+- Python 3.11+ (optional if running scripts locally; Docker image includes dependencies)
+
+## Authentication
+
+RAG-ACL uses **@convex-dev/auth** for authentication with a password-based provider.
+
+### How Auth Works
+
+1. Users sign up/in via the React UI using email and password
+2. Convex Auth manages sessions with secure cookies
+3. The API validates sessions via the `Authorization` header or cookies
+4. User roles and allowed sources are stored in the `users` table
+
+### Default Roles
+
+| Role | Description |
+|------|-------------|
+| `member` | Default role, has access based on allowedSources |
+| `admin` | Full access, can manage other users |
+| `engineer` | Role-based suggestions for engineering |
+| `finance` | Role-based suggestions for finance |
+| `hr` | Role-based suggestions for HR |
+
+### Default Sources
+
+| Source Key | Description |
+|------------|-------------|
+| `gdrive` | Google Drive documents |
+| `confluence` | Confluence pages |
+| `slack` | Slack export files |
+| `notion` | Notion documents |
+| `public` | Public/internal documents |
+| `finance` | Finance-specific documents |
+| `engineering` | Engineering-specific documents |
+| `hr` | HR-specific documents |
+
+### First-Time Setup
+
+1. Sign up with any email and password
+2. Click "Become Admin" to become the first admin user
+3. Use the Admin panel to assign roles and sources to other users
+
+### Admin Features
+
+Admins can:
+- View all users in their tenant
+- Update user roles
+- Modify allowed sources for any user
+- Assign source access permissions
 
 ## Setup
 
@@ -65,14 +121,16 @@ bun install
 Create a `.env` file with:
 
 ```env
-CONVEX_DEPLOYMENT=<your-convex-deployment>
-CONVEX_URL=<your-convex-url>
+CONVEX_DEPLOYMENT=dev:your-deployment-name
+CONVEX_URL=https://your-deployment.convex.cloud
 
-OPENAI_API_KEY=<your-api-key>
+OPENAI_API_KEY=your-api-key
 OPENAI_BASE_URL=https://openrouter.ai/api/v1  # Optional: for OpenRouter
 
-EMBED_MODEL=openai/text-embedding-3-small
-CHAT_MODEL=openai/gpt-4o-mini
+EMBED_MODEL=text-embedding-3-small
+CHAT_MODEL=gpt-4o-mini
+
+ALLOW_HEADER_AUTH=false  # Set to true for development header-based auth
 ```
 
 ### 3. Start Convex
@@ -81,24 +139,42 @@ CHAT_MODEL=openai/gpt-4o-mini
 bun run convex:dev
 ```
 
-### 4. Build and Run the API Server
+### 4. Build and Run Docker Services
 
 ```bash
-docker build -t rag-api .
-docker run -d --name rag-api -p 8000:8000 --env-file .env -v $(pwd)/faiss_data:/app/faiss_data rag-api
+docker compose up --build
 ```
 
-### 5. Seed Test Data
+This starts:
+- **Frontend** on port 3000
+- **API** on port 8000
+
+### 5. Seed Users (Optional)
+
+For programmatic user creation:
 
 ```bash
-# Create test users (Alice and Bob)
-docker exec rag-api python -m scripts.seed_users
-
-# Ingest sample documents
-docker exec rag-api python -m scripts.ingest
+docker compose exec api python -m scripts.seed_users
 ```
 
-### 6. Start the Frontend
+### 6. Seed Sample Data
+
+Minimal two-source demo (public and finance):
+
+```bash
+docker compose exec api python -m scripts.ingest
+```
+
+Multi-source sample data (gdrive, confluence, slack):
+
+```bash
+docker compose exec api python -m scripts.generate_sample_docs
+docker compose exec api python -m scripts.ingest_folder
+```
+
+### 7. Start the Frontend (Alternative)
+
+For local development without Docker:
 
 ```bash
 bun run dev
@@ -110,18 +186,30 @@ The application will be available at http://localhost:3000
 
 ### Web Interface
 
-Open http://localhost:3000 in your browser. Use the dropdown to switch between users and observe how access control affects query results.
+Open http://localhost:3000 in your browser:
 
-### API
+1. **Sign Up**: Create an account with email and password
+2. **Become Admin**: First user should click "Become Admin"
+3. **Configure Users**: Use the Admin panel to assign roles and sources
+4. **Chat**: Ask questions about documents you have access to
 
-**POST /chat**
+### API Authentication
 
-Send a message and receive an AI-generated response based on authorized documents.
+API endpoints require authentication via Convex Auth session.
+
+**Get current user:**
+
+```bash
+curl http://localhost:8000/me \
+  -H "Authorization: Bearer <token>"
+```
+
+**Send a chat message:**
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -H "x-user-id: <user-id>" \
+  -H "Authorization: Bearer <token>" \
   -d '{"message": "What are the office hours?"}'
 ```
 
@@ -130,10 +218,22 @@ Response:
 {
   "answer": "The office hours are 9-5.",
   "retrieved": [
-    {"sourceKey": "public", "score": 0.71},
-    {"sourceKey": "finance", "score": 0.15}
-  ]
+    {"sourceKey": "gdrive", "score": 0.71, "docTitle": "Hiring Plan", "snippet": "..."},
+    {"sourceKey": "confluence", "score": 0.15, "docTitle": "Onboarding", "snippet": "..."}
+  ],
+  "logId": "abc123"
 }
+```
+
+### Development Header Auth
+
+For testing, set `ALLOW_HEADER_AUTH=true` in `.env` and use the `x-user-id` header:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: <user-id>" \
+  -d '{"message": "What are the office hours?"}'
 ```
 
 ## Project Structure
@@ -141,57 +241,98 @@ Response:
 ```
 rag-faiss-convex/
 ├── api/
-│   ├── main.py           # FastAPI application
-│   └── faiss_store.py    # FAISS vector store management
+│   ├── main.py           # FastAPI application with auth, chat, feedback endpoints
+│   └── faiss_store.py    # FAISS vector store management (per-tenant, per-source)
 ├── convex/
-│   ├── schema.ts         # Database schema
-│   ├── users.ts          # User queries/mutations
-│   ├── chunks.ts         # Chunk retrieval
-│   └── ingest.ts         # Document ingestion
+│   ├── schema.ts         # Database schema (users, documents, chunks, logs)
+│   ├── auth.ts           # Convex Auth configuration (password provider)
+│   ├── users.ts          # User queries/mutations (CRUD, admin functions)
+│   ├── chunks.ts         # Chunk retrieval with tenant filtering
+│   ├── documents.ts      # Document queries
+│   ├── ingest.ts         # Document ingestion mutations
+│   └── logs.ts           # Query logging and feedback
 ├── scripts/
-│   ├── seed_users.py     # Create test users
-│   └── ingest.py         # Document ingestion script
+│   ├── seed_users.py     # Create test users via API
+│   ├── ingest.py         # Simple document ingestion script
+│   ├── ingest_folder.py  # Ingest all files under data/<source>/
+│   ├── generate_sample_docs.py # Generate sample docs under data/
+│   └── test_acl.py       # ACL validation script
 ├── components/           # React components
-│   ├── Chat.tsx
-│   ├── UserSelector.tsx
-│   ├── MessageList.tsx
-│   ├── MessageInput.tsx
-│   └── SourcePanel.tsx
-├── index.ts              # Bun server
-├── index.html            # HTML entry
-├── frontend.tsx          # React entry
-├── styles.css            # Styles
-├── Dockerfile
-├── docker-compose.yml
-└── environment.yml       # Conda environment
+│   ├── Chat.tsx          # Main chat interface, auth state handling
+│   ├── SignIn.tsx        # Email/password sign-in/sign-up form
+│   ├── UserSelector.tsx  # User panel showing current user info
+│   ├── MessageList.tsx   # Chat messages with feedback buttons
+│   ├── MessageInput.tsx  # Text input for chat messages
+│   ├── SourcePanel.tsx   # Sidebar showing retrieved sources
+│   ├── SourceViewer.tsx  # Modal to view source document content
+│   └── AdminPanel.tsx    # User management (admin only)
+├── data/                 # Sample docs by source
+│   ├── gdrive/           # Google Drive documents
+│   ├── confluence/       # Confluence pages
+│   └── slack/            # Slack export files
+├── faiss_data/           # Generated FAISS indexes (per-tenant, per-source)
+├── index.ts              # Bun server (frontend + API proxy)
+├── index.html            # HTML entry point
+├── frontend.tsx          # React entry with Convex Auth provider
+├── styles.css            # Complete styling
+├── Dockerfile            # API container definition
+├── Dockerfile.frontend   # Frontend container definition
+├── docker-compose.yml    # Multi-container configuration
+└── environment.yml       # Conda environment for Python dependencies
 ```
 
 ## Database Schema
 
-**users**
+### users
 | Field | Type | Description |
 |-------|------|-------------|
+| _id | id | User identifier |
 | tenantId | string | Tenant identifier |
 | email | string | User email |
-| role | string | User role |
-| allowedSources | string[] | List of accessible sources |
+| role | string | User role (member, admin, engineer, finance, hr) |
+| allowedSources | string[] | List of accessible source keys |
 
-**documents**
+### documents
 | Field | Type | Description |
 |-------|------|-------------|
+| _id | id | Document identifier |
 | tenantId | string | Tenant identifier |
-| sourceKey | string | Source category (e.g., "public", "finance") |
+| sourceKey | string | Source category (e.g., "gdrive", "confluence") |
 | title | string | Document title |
 | rawText | string | Full document text |
+| sourceUrl | string | Optional URL to original source |
 
-**chunks**
+### chunks
 | Field | Type | Description |
 |-------|------|-------------|
+| _id | id | Chunk identifier |
 | tenantId | string | Tenant identifier |
 | sourceKey | string | Source category |
 | docId | id | Reference to parent document |
 | chunkIndex | number | Position in document |
 | text | string | Chunk content |
+
+### queryLogs
+| Field | Type | Description |
+|-------|------|-------------|
+| _id | id | Log identifier |
+| tenantId | string | Tenant identifier |
+| userId | id | User who made the query |
+| message | string | User's question |
+| answer | string | AI response |
+| allowedSources | string[] | User's allowed sources at query time |
+| retrieved | object[] | Retrieved chunks with scores |
+| createdAt | number | Timestamp |
+
+### feedback
+| Field | Type | Description |
+|-------|------|-------------|
+| _id | id | Feedback identifier |
+| logId | id | Reference to query log |
+| userId | id | User who gave feedback |
+| helpful | boolean | Thumbs up/down |
+| comment | string | Optional feedback comment |
+| createdAt | number | Timestamp |
 
 ## Ingesting Custom Documents
 
@@ -210,12 +351,66 @@ ingest_doc(
 
 Documents are automatically chunked, embedded, and indexed in both Convex and FAISS.
 
+To ingest a folder of documents, place files under `rag-faiss-convex/data/<sourceKey>/` and run:
+
+```bash
+docker compose exec api python -m scripts.ingest_folder
+```
+
+Supported file types include `.md`, `.txt`, and Slack-style `.json` exports. Slack exports should follow the format generated by `scripts/generate_sample_docs.py`.
+
+## ACL Test Script
+
+Run the ACL test suite after ingesting data:
+
+```bash
+docker compose exec api python -m scripts.test_acl
+```
+
+This script validates that:
+- Users can only retrieve documents from their allowed sources
+- Cross-tenant isolation is enforced
+- Source filtering works correctly
+
 ## Security Considerations
 
 - **Tenant Isolation**: All queries are filtered by tenant ID
 - **Source-Based ACL**: Users can only search indexes for their allowed sources
 - **Defense-in-Depth**: Multiple layers verify access before returning results
-- **Header-Based Auth**: User identity passed via `x-user-id` header (suitable for internal/demo use; replace with proper auth for production)
+- **Session-Based Auth**: Convex Auth uses secure cookies for session management
+- **Password Hashing**: Handled securely by @convex-dev/auth
+
+### Authorization Flow
+
+1. User authenticates via Convex Auth (email/password)
+2. API validates session token from cookie or Authorization header
+3. User's tenantId and allowedSources are retrieved from Convex
+4. Only FAISS indexes matching allowedSources are searched
+5. Results are filtered by tenant ID and source at multiple layers
+6. Chunks from unauthorized sources are excluded before generating response
+
+### Production Readiness
+
+Before production deployment:
+
+1. **OAuth Configuration**: Add OAuth provider config:
+   ```env
+   OAUTH_CLIENT_ID=your-client-id
+   OAUTH_CLIENT_SECRET=your-client-secret
+   OAUTH_METADATA_URL=https://your-idp.com/.well-known/openid-configuration
+   OAUTH_REDIRECT_URL=https://your-domain.com/api/auth/callback
+   SESSION_SECRET=your-session-secret
+   ```
+
+2. **Group-Based Access**: Configure automatic role/source assignment:
+   ```env
+   AUTH_GROUP_SOURCE_MAP={"Domain Users":["public"],"Engineering":["engineering","gdrive"]}
+   AUTH_GROUP_ROLE_MAP={"Engineering":"engineer","Finance":"finance"}
+   AUTH_DEFAULT_TENANT=your-tenant
+   AUTH_DEFAULT_SOURCES=["public"]
+   ```
+
+3. **Production Auth**: Run `bun run convex:dev` to push schema, then deploy with OAuth
 
 ## License
 

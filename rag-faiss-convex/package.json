@@ -12,13 +12,18 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@auth/core": "^0.37.0",
+    "@convex-dev/auth": "^0.0.90",
     "convex": "^1.31.2",
     "react": "^18",
     "react-dom": "^18"
   },
   "scripts": {
     "dev": "bun --hot index.ts",
+    "start": "bun run index.ts",
     "convex:dev": "bunx convex dev",
-    "convex:deploy": "bunx convex deploy"
+    "convex:deploy": "bunx convex deploy",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
   }
 }

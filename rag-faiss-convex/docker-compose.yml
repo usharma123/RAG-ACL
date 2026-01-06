@@ -1,10 +1,38 @@
 services:
+  # Bun frontend server
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: dev
+    platform: linux/arm64
+    ports:
+      - "3000:3000"
+    environment:
+      - CONVEX_URL=${CONVEX_URL}
+      - API_BASE=http://api:8000
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+  # Python FastAPI backend
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/arm64
     env_file: .env
     ports:
       - "8000:8000"
+    environment:
+      - CONVEX_URL=${CONVEX_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - EMBED_MODEL=${EMBED_MODEL:-text-embedding-3-small}
+      - CHAT_MODEL=${CHAT_MODEL:-gpt-4o-mini}
+      - ALLOW_HEADER_AUTH=${ALLOW_HEADER_AUTH:-false}
     volumes:
       - ./:/app
       - ./faiss_data:/app/faiss_data

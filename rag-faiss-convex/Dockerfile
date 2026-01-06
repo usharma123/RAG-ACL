@@ -1,3 +1,4 @@
+# API Backend - Python with FAISS
 FROM condaforge/miniforge3:latest
 
 WORKDIR /app

@@ -7,6 +7,7 @@ export const addDocument = mutation({
     sourceKey: v.string(),
     title: v.string(),
     rawText: v.string(),
+    sourceUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => await ctx.db.insert("documents", args),
 });

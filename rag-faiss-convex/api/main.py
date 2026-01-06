@@ -1,6 +1,9 @@
-import os, requests
+import os
+from typing import Optional
+import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from api.faiss_store import FaissPerSourceStore
@@ -18,11 +21,26 @@ CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 faiss_store = FaissPerSourceStore()
 app = FastAPI()
 
-def convex_call(kind: str, path: str, args: dict):
+# CORS for local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def convex_call(kind: str, path: str, args: dict, token: Optional[str] = None):
+    """Call Convex API with optional auth token."""
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    
     r = requests.post(
         f"{CONVEX_URL}/api/{kind}",
         json={"path": path, "args": args, "format": "json"},
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         timeout=60,
     )
     r.raise_for_status()
@@ -31,20 +49,131 @@ def convex_call(kind: str, path: str, args: dict):
         raise HTTPException(500, detail=data)
     return data["value"]
 
+
+def get_auth_token(request: Request) -> Optional[str]:
+    """Extract Convex Auth token from request."""
+    # Check Authorization header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    
+    # Check cookies for Convex Auth session
+    # Convex Auth stores session in a cookie
+    return request.cookies.get("__convexAuthToken")
+
+
+def _require_user(request: Request) -> dict:
+    """Get current user from Convex Auth session."""
+    token = get_auth_token(request)
+    
+    # For development, also allow x-user-id header
+    if not token and os.getenv("ALLOW_HEADER_AUTH", "").lower() == "true":
+        user_id = request.headers.get("x-user-id")
+        if user_id:
+            user = convex_call("query", "users:get", {"userId": user_id})
+            if user:
+                return user
+    
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    
+    # Call the currentUser query with the auth token
+    # This validates the session and returns the user
+    try:
+        user = convex_call("query", "users:currentUser", {}, token=token)
+        if not user:
+            raise HTTPException(401, "User not found")
+        return user
+    except Exception as e:
+        raise HTTPException(401, f"Authentication failed: {str(e)}")
+
+
 class ChatIn(BaseModel):
     message: str
 
+
+class FeedbackIn(BaseModel):
+    logId: str
+    helpful: bool
+    comment: Optional[str] = None
+
+
+def _make_snippet(text: str, max_len: int = 220) -> str:
+    cleaned = " ".join(text.split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[:max_len].rstrip() + "..."
+
+
+@app.get("/me")
+def me(request: Request):
+    user = _require_user(request)
+    return {
+        "id": user["_id"],
+        "email": user.get("email"),
+        "role": user["role"],
+        "allowedSources": user["allowedSources"],
+        "tenantId": user["tenantId"],
+    }
+
+
+@app.get("/documents/{doc_id}")
+def get_document(doc_id: str, request: Request):
+    user = _require_user(request)
+    tenant_id = user["tenantId"]
+    allowed_sources = set(user["allowedSources"])
+
+    doc = convex_call("query", "documents:get", {"id": doc_id, "tenantId": tenant_id})
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    if doc["sourceKey"] not in allowed_sources:
+        raise HTTPException(403, "Access denied")
+
+    return {
+        "id": doc["_id"],
+        "title": doc["title"],
+        "sourceKey": doc["sourceKey"],
+        "rawText": doc["rawText"],
+        "sourceUrl": doc.get("sourceUrl"),
+    }
+
+
+@app.post("/feedback")
+def feedback(payload: FeedbackIn, request: Request):
+    user = _require_user(request)
+    convex_call(
+        "mutation",
+        "logs:addFeedback",
+        {
+            "logId": payload.logId,
+            "userId": user["_id"],
+            "helpful": payload.helpful,
+            "comment": payload.comment,
+        },
+    )
+    return {"status": "ok"}
+
+
 @app.post("/chat")
-def chat(payload: ChatIn, x_user_id: str = Header(...)):
-    # Authorization-only MVP: caller supplies assumed identity
-    user = convex_call("query", "users:get", {"userId": x_user_id})
-    if not user:
-        raise HTTPException(404, "Unknown user")
+def chat(payload: ChatIn, request: Request):
+    user = _require_user(request)
 
     tenant_id = user["tenantId"]
     allowed_sources = user["allowedSources"]
     if not allowed_sources:
-        return {"answer": "No sources available for this user.", "retrieved": []}
+        log_id = convex_call(
+            "mutation",
+            "logs:add",
+            {
+                "tenantId": tenant_id,
+                "userId": user["_id"],
+                "message": payload.message,
+                "answer": "No sources available for this user.",
+                "allowedSources": allowed_sources,
+                "retrieved": [],
+            },
+        )
+        return {"answer": "No sources available for this user.", "retrieved": [], "logId": log_id}
 
     emb = oa.embeddings.create(model=EMBED_MODEL, input=payload.message).data[0].embedding
 
@@ -65,12 +194,66 @@ def chat(payload: ChatIn, x_user_id: str = Header(...)):
     resp = oa.chat.completions.create(
         model=CHAT_MODEL,
         messages=[
-            {"role": "system", "content": "Answer using ONLY the provided context. If missing, say you don't know."},
+            {
+                "role": "system",
+                "content": "Answer using ONLY the provided context. If missing, say you don't know.",
+            },
             {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION:\n{payload.message}"},
         ],
     )
 
+    doc_ids = list({c["docId"] for c in ordered})
+    docs = convex_call("query", "documents:getMany", {"ids": doc_ids, "tenantId": tenant_id})
+    doc_by_id = {d["_id"]: d for d in docs}
+
+    retrieved = []
+    retrieved_for_log = []
+    for chunk_id, score, source_key in hits:
+        chunk = by_id.get(chunk_id)
+        if not chunk or chunk["tenantId"] != tenant_id or chunk["sourceKey"] not in allowed:
+            continue
+        doc = doc_by_id.get(chunk["docId"])
+        if not doc:
+            continue
+        retrieved.append(
+            {
+                "sourceKey": source_key,
+                "score": score,
+                "docId": chunk["docId"],
+                "docTitle": doc["title"],
+                "chunkId": chunk["_id"],
+                "chunkIndex": chunk["chunkIndex"],
+                "snippet": _make_snippet(chunk["text"]),
+                "chunkText": chunk["text"],
+                "sourceUrl": doc.get("sourceUrl"),
+            }
+        )
+        retrieved_for_log.append(
+            {
+                "sourceKey": source_key,
+                "score": score,
+                "docId": chunk["docId"],
+                "docTitle": doc["title"],
+                "chunkId": chunk["_id"],
+                "chunkIndex": chunk["chunkIndex"],
+            }
+        )
+
+    log_id = convex_call(
+        "mutation",
+        "logs:add",
+        {
+            "tenantId": tenant_id,
+            "userId": user["_id"],
+            "message": payload.message,
+            "answer": resp.choices[0].message.content,
+            "allowedSources": allowed_sources,
+            "retrieved": retrieved_for_log,
+        },
+    )
+
     return {
         "answer": resp.choices[0].message.content,
-        "retrieved": [{"sourceKey": s, "score": sc} for (_, sc, s) in hits],
+        "retrieved": retrieved,
+        "logId": log_id,
     }

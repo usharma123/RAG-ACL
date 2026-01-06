@@ -1,15 +1,23 @@
 import React from "react";
 
-export interface SourceScore {
+export interface SourceHit {
   sourceKey: string;
   score: number;
+  docId: string;
+  docTitle: string;
+  chunkId: string;
+  chunkIndex: number;
+  snippet: string;
+  chunkText: string;
+  sourceUrl?: string | null;
 }
 
 interface SourcePanelProps {
-  sources: SourceScore[];
+  sources: SourceHit[];
+  onOpenSource: (source: SourceHit) => void;
 }
 
-export function SourcePanel({ sources }: SourcePanelProps) {
+export function SourcePanel({ sources, onOpenSource }: SourcePanelProps) {
   return (
     <div className="sources-panel">
       <h2>Retrieved Sources</h2>
@@ -20,8 +28,21 @@ export function SourcePanel({ sources }: SourcePanelProps) {
         </p>
       ) : (
         sources.map((source, index) => (
-          <div key={`${source.sourceKey}-${index}`} className="source-item">
-            <div className="source-name">{source.sourceKey}</div>
+          <div key={`${source.chunkId}-${index}`} className="source-item">
+            <div className="source-header">
+              <div>
+                <div className="source-name">{source.docTitle}</div>
+                <div className="source-meta">{source.sourceKey}</div>
+              </div>
+              <button
+                type="button"
+                className="source-open-button"
+                onClick={() => onOpenSource(source)}
+              >
+                Open section
+              </button>
+            </div>
+            <div className="source-snippet">{source.snippet}</div>
             <div className="score-bar">
               <div
                 className="score-fill"

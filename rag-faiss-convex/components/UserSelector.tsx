@@ -2,60 +2,37 @@ import React from "react";
 
 export interface User {
   id: string;
-  name: string;
   email: string;
-  sources: string[];
+  role: string;
+  allowedSources: string[];
 }
 
-export const USERS: User[] = [
-  {
-    id: "jd79cqpj3th23bqt841hwr7rnx7yqms8",
-    name: "Alice",
-    email: "alice@acme.com",
-    sources: ["gdrive", "confluence", "slack"],
-  },
-  {
-    id: "jd7c1y3vwx246mamqs2rarry2h7ypzpd",
-    name: "Bob",
-    email: "bob@acme.com",
-    sources: ["gdrive"],
-  },
-];
-
-interface UserSelectorProps {
-  currentUser: User;
-  onUserChange: (user: User) => void;
+interface UserPanelProps {
+  user: User;
+  onLogout: () => void;
 }
 
-export function UserSelector({ currentUser, onUserChange }: UserSelectorProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const user = USERS.find((u) => u.id === e.target.value);
-    if (user) {
-      onUserChange(user);
-    }
-  };
-
+export function UserPanel({ user, onLogout }: UserPanelProps) {
   return (
-    <div className="user-selector">
+    <div className="user-panel">
       <h2>Current User</h2>
-      <select value={currentUser.id} onChange={handleChange}>
-        {USERS.map((user) => (
-          <option key={user.id} value={user.id}>
-            {user.name}
-          </option>
-        ))}
-      </select>
-
       <div className="user-info">
-        <div className="email">{currentUser.email}</div>
+        <div className="email">{user.email}</div>
+        <div className="role">Role: {user.role}</div>
         <div className="sources-label">Accessible Sources:</div>
         <div>
-          {currentUser.sources.map((source) => (
+          {user.allowedSources.map((source) => (
             <span key={source} className="source-tag">
               {source}
             </span>
           ))}
+          {user.allowedSources.length === 0 && (
+            <span className="source-tag muted">none</span>
+          )}
         </div>
+        <button className="sign-out-button" type="button" onClick={onLogout}>
+          Sign out
+        </button>
       </div>
     </div>
   );
