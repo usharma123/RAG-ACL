@@ -18,7 +18,19 @@ oa = OpenAI(
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 
+# All available sources in the system (must match convex/users.ts AVAILABLE_SOURCES)
+ALL_SOURCES = ["gdrive", "confluence", "slack", "notion", "public", "finance", "engineering", "hr"]
+
 faiss_store = FaissPerSourceStore()
+
+
+def get_allowed_sources(user: dict) -> list:
+    """Get allowed sources for a user. Admins have access to all sources."""
+    if user.get("role") == "admin":
+        return ALL_SOURCES
+    return user.get("allowedSources", [])
+
+
 app = FastAPI()
 
 # CORS for local development
@@ -112,7 +124,7 @@ def me(request: Request):
         "id": user["_id"],
         "email": user.get("email"),
         "role": user["role"],
-        "allowedSources": user["allowedSources"],
+        "allowedSources": get_allowed_sources(user),
         "tenantId": user["tenantId"],
     }
 
@@ -121,7 +133,7 @@ def me(request: Request):
 def get_document(doc_id: str, request: Request):
     user = _require_user(request)
     tenant_id = user["tenantId"]
-    allowed_sources = set(user["allowedSources"])
+    allowed_sources = set(get_allowed_sources(user))
 
     doc = convex_call("query", "documents:get", {"id": doc_id, "tenantId": tenant_id})
     if not doc:
@@ -141,16 +153,17 @@ def get_document(doc_id: str, request: Request):
 @app.post("/feedback")
 def feedback(payload: FeedbackIn, request: Request):
     user = _require_user(request)
-    convex_call(
-        "mutation",
-        "logs:addFeedback",
-        {
-            "logId": payload.logId,
-            "userId": user["_id"],
-            "helpful": payload.helpful,
-            "comment": payload.comment,
-        },
-    )
+    
+    # Build args, excluding None values (Convex doesn't accept null for optional fields)
+    args = {
+        "logId": payload.logId,
+        "userId": user["_id"],
+        "helpful": payload.helpful,
+    }
+    if payload.comment is not None:
+        args["comment"] = payload.comment
+    
+    convex_call("mutation", "logs:addFeedback", args)
     return {"status": "ok"}
 
 
@@ -159,7 +172,7 @@ def chat(payload: ChatIn, request: Request):
     user = _require_user(request)
 
     tenant_id = user["tenantId"]
-    allowed_sources = user["allowedSources"]
+    allowed_sources = get_allowed_sources(user)
     if not allowed_sources:
         log_id = convex_call(
             "mutation",

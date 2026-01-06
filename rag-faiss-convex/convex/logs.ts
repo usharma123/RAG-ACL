@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { auth } from "./auth";
 
 export const add = mutation({
   args: {
@@ -32,9 +33,23 @@ export const addFeedback = mutation({
   },
   handler: async (ctx, args) => {
     const log = await ctx.db.get(args.logId);
-    if (!log || log.userId !== args.userId) {
-      throw new Error("Invalid log reference");
+    if (!log) {
+      throw new Error("Log not found");
     }
+    
+    // Check if user owns this log or is admin
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const isAdmin = user.role === "admin";
+    const isOwner = log.userId === args.userId;
+    
+    if (!isAdmin && !isOwner) {
+      throw new Error("Not authorized to provide feedback on this query");
+    }
+    
     return await ctx.db.insert("feedback", {
       ...args,
       createdAt: Date.now(),

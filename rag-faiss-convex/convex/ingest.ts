@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const addDocument = mutation({
@@ -32,5 +32,27 @@ export const addChunks = mutation({
       ids.push(id);
     }
     return ids; // important for FAISS mapping
+  },
+});
+
+// List all documents for a tenant (for debugging/admin)
+export const listDocuments = query({
+  args: { tenantId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("documents")
+      .filter((q) => q.eq(q.field("tenantId"), args.tenantId))
+      .collect();
+  },
+});
+
+// List all chunks for a tenant (for debugging/admin)
+export const listChunks = query({
+  args: { tenantId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("chunks")
+      .filter((q) => q.eq(q.field("tenantId"), args.tenantId))
+      .collect();
   },
 });

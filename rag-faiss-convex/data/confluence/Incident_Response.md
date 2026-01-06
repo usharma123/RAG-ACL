@@ -4,10 +4,10 @@ This page is maintained in Confluence.
 
 - Key point about onboarding: policy
 - Risk: latency
-- Next step: audit
+- Next step: ship
 
-- Key point about incident response: process
+- Key point about incident response: ownership
 - Risk: handoff
-- Next step: audit
+- Next step: approve
 
 Reminder: follow the runbook exactly during incidents.

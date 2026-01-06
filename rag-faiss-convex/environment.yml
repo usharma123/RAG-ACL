@@ -12,3 +12,9 @@ dependencies:
       - python-dotenv
       - requests
       - openai
+      # Document parsing libraries
+      - pypdf2
+      - python-pptx
+      - openpyxl
+      # For sample doc generation
+      - reportlab

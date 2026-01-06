@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignIn } from "./SignIn";
@@ -76,6 +76,7 @@ type View = "chat" | "admin";
 
 function ChatContent() {
   const { signOut } = useAuthActions();
+  const authToken = useAuthToken();
   const currentUser = useQuery(api.users.currentUser);
   
   const [view, setView] = useState<View>("chat");
@@ -109,7 +110,7 @@ function ChatContent() {
       setActiveDoc(null);
       try {
         const response = await fetch(`/api/documents/${activeSource.docId}`, {
-          credentials: "include",
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
         });
         if (!response.ok) {
           throw new Error(`Document fetch failed: ${response.status}`);
@@ -135,7 +136,7 @@ function ChatContent() {
     return () => {
       cancelled = true;
     };
-  }, [activeSource]);
+  }, [activeSource, authToken]);
 
   const suggestions = useMemo(() => (user ? buildSuggestions(user) : []), [user]);
   const quickStarts = useMemo(() => suggestions.slice(0, 4), [suggestions]);
@@ -156,12 +157,15 @@ function ChatContent() {
       setLastSources([]);
 
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (authToken) {
+          headers["Authorization"] = `Bearer ${authToken}`;
+        }
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
+          headers,
           body: JSON.stringify({ message: text }),
         });
 
@@ -192,7 +196,7 @@ function ChatContent() {
         setIsLoading(false);
       }
     },
-    [isLoading]
+    [isLoading, authToken]
   );
 
   const handleQuickStart = useCallback((question: string) => {
@@ -203,12 +207,15 @@ function ChatContent() {
     if (!logId) return;
     setFeedbackPending((prev) => ({ ...prev, [logId]: true }));
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
       const response = await fetch("/api/feedback", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
+        headers,
         body: JSON.stringify({ logId, helpful }),
       });
       if (!response.ok) {
@@ -230,7 +237,7 @@ function ChatContent() {
         return next;
       });
     }
-  }, []);
+  }, [authToken]);
 
   const handleLogout = useCallback(async () => {
     await signOut();
@@ -295,29 +302,6 @@ function ChatContent() {
           </div>
         )}
 
-        {view === "chat" && (
-          <>
-            <div className="sidebar-section">
-              <div className="ask-panel">
-                <h2>What can I ask?</h2>
-                <div className="ask-list">
-                  {askSuggestions.map((question) => (
-                    <button
-                      key={question}
-                      type="button"
-                      className="ask-item"
-                      onClick={() => setDraft(question)}
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <SourcePanel sources={lastSources} onOpenSource={setActiveSource} />
-          </>
-        )}
       </aside>
 
       <main className="main-chat">
@@ -347,6 +331,13 @@ function ChatContent() {
           <AdminPanel />
         )}
       </main>
+
+      {/* Right sidebar for sources - only show in chat view */}
+      {view === "chat" && (
+        <aside className="sources-sidebar">
+          <SourcePanel sources={lastSources} onOpenSource={setActiveSource} />
+        </aside>
+      )}
 
       {activeSource && (
         <SourceViewer

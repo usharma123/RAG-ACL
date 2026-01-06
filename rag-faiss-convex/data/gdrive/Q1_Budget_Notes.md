@@ -3,11 +3,11 @@
 These are internal notes stored in Google Drive.
 
 - Key point about budget: ownership
-- Risk: cost
+- Risk: handoff
 - Next step: review
 
-- Key point about headcount: ownership
-- Risk: compliance
-- Next step: audit
+- Key point about headcount: policy
+- Risk: handoff
+- Next step: ship
 
 Confidential: Finance-related details included.
