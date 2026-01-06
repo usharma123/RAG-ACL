@@ -21,10 +21,10 @@ RAG-ACL combines vector similarity search with strict access control to ensure u
 │   React UI      │────▶│   Bun Server    │────▶│   FastAPI       │
 │   (Port 3000)   │     │   (Proxy/API)   │     │   (Port 8000)   │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                          │
-                                     ┌────────────────────┼────────────────────┐
-                                     │                    │                    │
-                                     ▼                    ▼                    ▼
+                                                         │
+                                     ┌───────────────────┼────────────────────┐
+                                     │                   │                    │
+                                     ▼                   ▼                    ▼
                               ┌──────────┐         ┌──────────┐         ┌──────────┐
                               │  FAISS   │         │  Convex  │         │  OpenAI  │
                               │  Index   │         │    DB    │         │          │
