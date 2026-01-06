@@ -5,7 +5,10 @@ from api.faiss_store import FaissPerSourceStore
 
 load_dotenv()
 CONVEX_URL = os.environ["CONVEX_URL"].rstrip("/")
-oa = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+oa = OpenAI(
+    api_key=os.environ["OPENAI_API_KEY"],
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 
 faiss_store = FaissPerSourceStore()
@@ -25,17 +28,22 @@ def convex_mutation(path: str, args: dict):
 
 def chunk_text(text: str, max_chars: int = 1200):
     chunks, cur, cur_len = [], [], 0
-    for para in text.split("\n\n"):
+    separator = "\n\n"
+    sep_len = len(separator)
+    for para in text.split(separator):
         para = para.strip()
         if not para:
             continue
-        if cur and cur_len + len(para) > max_chars:
-            chunks.append("\n\n".join(cur))
+        # Account for separator length when calculating if we'd exceed max_chars
+        added_len = len(para) + (sep_len if cur else 0)
+        if cur and cur_len + added_len > max_chars:
+            chunks.append(separator.join(cur))
             cur, cur_len = [], 0
+            added_len = len(para)  # No separator for first item
         cur.append(para)
-        cur_len += len(para)
+        cur_len += added_len
     if cur:
-        chunks.append("\n\n".join(cur))
+        chunks.append(separator.join(cur))
     return chunks
 
 def embed(texts):
@@ -51,6 +59,10 @@ def ingest_doc(tenant_id: str, source_key: str, title: str, raw_text: str):
     })
 
     pieces = chunk_text(raw_text)
+    if not pieces:
+        print("skipped (no content):", title)
+        return
+
     vectors = embed(pieces)
 
     chunk_rows = [{"chunkIndex": i, "text": pieces[i]} for i in range(len(pieces))]

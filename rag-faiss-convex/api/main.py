@@ -8,7 +8,10 @@ from api.faiss_store import FaissPerSourceStore
 load_dotenv()
 
 CONVEX_URL = os.environ["CONVEX_URL"].rstrip("/")
-oa = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+oa = OpenAI(
+    api_key=os.environ["OPENAI_API_KEY"],
+    base_url=os.getenv("OPENAI_BASE_URL"),
+)
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 
@@ -49,13 +52,13 @@ def chat(payload: ChatIn, x_user_id: str = Header(...)):
     hits = faiss_store.search(tenant_id, allowed_sources, emb, top_k_per_source=8)[:8]
     chunk_ids = [cid for (cid, _, _) in hits]
 
-    chunks = convex_call("query", "chunks:getMany", {"ids": chunk_ids})
+    chunks = convex_call("query", "chunks:getMany", {"ids": chunk_ids, "tenantId": tenant_id})
     by_id = {c["_id"]: c for c in chunks}
 
-    # Preserve FAISS order + defense-in-depth source check
+    # Preserve FAISS order + defense-in-depth tenant and source check
     allowed = set(allowed_sources)
     ordered = [by_id[cid] for cid in chunk_ids if cid in by_id]
-    ordered = [c for c in ordered if c["sourceKey"] in allowed]
+    ordered = [c for c in ordered if c["tenantId"] == tenant_id and c["sourceKey"] in allowed]
 
     context = "\n\n".join([f"[source={c['sourceKey']}]\n{c['text']}" for c in ordered])
 

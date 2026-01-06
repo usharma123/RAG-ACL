@@ -69,7 +69,8 @@ class FaissPerSourceStore:
                     continue
                 D, I = index.search(q, top_k_per_source)
                 for score, idx in zip(D[0].tolist(), I[0].tolist()):
-                    if idx >= 0:
+                    # Guard against index/ids mismatch (e.g., from crash during write)
+                    if idx >= 0 and idx < len(ids):
                         scored.append((ids[idx], float(score), source))
 
         scored.sort(key=lambda x: x[1], reverse=True)
