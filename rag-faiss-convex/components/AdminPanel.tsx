@@ -150,7 +150,10 @@ export function AdminPanel() {
   if (users === undefined || availableSources === undefined || availableRoles === undefined) {
     return (
       <div className="admin-panel">
-        <div className="admin-loading">Loading users...</div>
+        <div className="admin-loading">
+          <div className="admin-loading-spinner"></div>
+          <span>Loading users...</span>
+        </div>
       </div>
     );
   }
@@ -159,6 +162,10 @@ export function AdminPanel() {
     return (
       <div className="admin-panel">
         <div className="admin-empty">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="24" cy="16" r="8" opacity="0.5"/>
+            <path d="M8 44v-4c0-6.627 7.163-12 16-12s16 5.373 16 12v4" opacity="0.5"/>
+          </svg>
           <p>No users found or you don't have admin access.</p>
         </div>
       </div>
@@ -168,8 +175,22 @@ export function AdminPanel() {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>User Management</h2>
-        <p>Manage user roles and source access permissions</p>
+        <div className="admin-header-content">
+          <div className="admin-header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <h2>User Management</h2>
+            <p>Manage user roles and document access permissions</p>
+          </div>
+        </div>
+        <div className="admin-stats">
+          <span className="admin-stat">{users.length} users</span>
+        </div>
       </div>
 
       <div className="admin-table-container">

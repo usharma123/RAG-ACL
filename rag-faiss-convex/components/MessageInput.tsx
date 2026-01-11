@@ -27,8 +27,24 @@ export function MessageInput({ value, onChange, onSend, disabled }: MessageInput
           disabled={disabled}
           autoFocus
         />
-        <button type="submit" disabled={disabled || !value.trim()}>
-          Send
+        <button type="submit" disabled={disabled || !value.trim()} className="send-button">
+          <span className="send-text">Send</span>
+          <svg
+            className="send-icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </form>
     </div>

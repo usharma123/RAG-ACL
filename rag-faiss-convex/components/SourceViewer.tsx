@@ -47,17 +47,36 @@ export function SourceViewer({ hit, document, loading, error, onClose }: SourceV
     <div className="source-modal-overlay" onClick={onClose}>
       <div className="source-modal" onClick={(e) => e.stopPropagation()}>
         <div className="source-modal-header">
-          <div>
+          <div className="source-modal-info">
             <div className="source-modal-title">{document?.title || hit.docTitle}</div>
-            <div className="source-modal-meta">{hit.sourceKey}</div>
+            <div className="source-modal-meta">
+              <span className="source-modal-badge">{hit.sourceKey}</span>
+              <span className="source-modal-chunk">Chunk {hit.chunkIndex + 1}</span>
+            </div>
           </div>
           <button type="button" className="source-close-button" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             Close
           </button>
         </div>
         <div className="source-modal-body">
-          {loading && <div className="source-loading">Loading document...</div>}
-          {!loading && error && <div className="source-error">{error}</div>}
+          {loading && (
+            <div className="source-loading">
+              <div className="source-loading-spinner"></div>
+              <span>Loading document...</span>
+            </div>
+          )}
+          {!loading && error && (
+            <div className="source-error">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4M12 16h.01" strokeLinecap="round"/>
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
           {!loading && !error && document && (
             <>
               {document.sourceUrl && (
@@ -67,6 +86,9 @@ export function SourceViewer({ hit, document, loading, error, onClose }: SourceV
                   target="_blank"
                   rel="noreferrer"
                 >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                   Open original source
                 </a>
               )}
